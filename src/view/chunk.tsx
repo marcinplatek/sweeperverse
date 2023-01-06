@@ -26,8 +26,12 @@ export const Chunk = (props: ChunkProps) => {
     <div
       className="whitespace-pre absolute bg-blue-500 grid"
       style={{
-        left: props.data.pos[0] + view.position[0],
-        top: props.data.pos[1] + view.position[1],
+        left:
+          props.data.pos[0] * CHUNK_SHAPE[0] * FIELD_SHAPE[0] +
+          view.position[0],
+        top:
+          props.data.pos[1] * CHUNK_SHAPE[1] * FIELD_SHAPE[1] +
+          view.position[1],
         gridTemplateColumns: `repeat(${CHUNK_SHAPE[0]}, minmax(0, 1fr))`,
         width: CHUNK_SHAPE[0] * FIELD_SHAPE[0],
       }}

@@ -93,7 +93,7 @@ export const Field = (props: FieldProps) => {
           },
           (value) => value.toString()
         )
-        .exhaustive()}
+        .otherwise(() => "E")}
     </div>
   );
 };
