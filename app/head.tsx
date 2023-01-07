@@ -1,8 +1,7 @@
 export default function Head() {
-    return (
-      <>
-        <title>My Next.js App</title>
-      </>
-    )
-  }
-  
+  return (
+    <>
+      <title>Sweeperverse - The Infinite Minesweeper!</title>
+    </>
+  );
+}

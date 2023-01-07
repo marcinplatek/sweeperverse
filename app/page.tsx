@@ -1,20 +1,7 @@
-import produce from "immer";
-
-const temp = produce((draft) => {
-  draft.a += 1;
-
-  return { a: 4, b: 2 };
-});
+import { View } from "../src/view/view";
 
 const Page = () => {
-  const t = temp({ a: 1 });
-
-  return (
-    <div>
-      A: {t.a} B: {t.b}
-      {JSON.stringify(t)}
-    </div>
-  );
+  return <View />;
 };
 
 export default Page;
