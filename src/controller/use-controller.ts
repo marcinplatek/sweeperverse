@@ -15,10 +15,10 @@ export const useController = () => {
   const keyDownHandler = useCallback(
     (e: KeyboardEvent) => {
       match(e.key)
-        .with("ArrowUp", () => move(0, -1, 0))
-        .with("ArrowDown", () => move(0, 1, 0))
-        .with("ArrowLeft", () => move(-1, 0, 0))
-        .with("ArrowRight", () => move(1, 0, 0))
+        .with("ArrowUp", () => move(0, 1, 0))
+        .with("ArrowDown", () => move(0, -1, 0))
+        .with("ArrowLeft", () => move(1, 0, 0))
+        .with("ArrowRight", () => move(-1, 0, 0))
         .with("+", () => move(0, 0, 1))
         .with("-", () => move(0, 0, -1))
         .otherwise(() => {});

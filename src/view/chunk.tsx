@@ -22,6 +22,13 @@ export const Chunk = (props: ChunkProps) => {
     shallow
   );
 
+  if (!(props.data.fields instanceof Array)) {
+    throw new Error(`
+        Chunk data is not an array.
+        Chunk data: ${JSON.stringify(props.data.fields)}
+      `);
+  }
+
   return (
     <div
       className="whitespace-pre absolute bg-blue-500 grid"

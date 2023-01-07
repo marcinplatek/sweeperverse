@@ -1,7 +1,15 @@
 import produce from "immer";
 import { match } from "ts-pattern";
 import { CHUNK_SHAPE, DIFFICULTY } from "../constants";
-import { FieldState, FieldValue, Vec2, World } from "../types";
+import {
+  ChunkData,
+  FieldState,
+  FieldValue,
+  Fin9,
+  Vec2,
+  Vec2Hash,
+  World,
+} from "../types";
 import { ravel } from "./utils";
 
 export const newWorld = (): World => ({
@@ -60,64 +68,79 @@ const neighbors = (
   });
 };
 
-export const addChunk = (world: World, pos: Vec2, difficulty: number) =>
-  produce(world, (draft) => {
-    if (draft.chunks[`${pos[0]},${pos[1]}`]) {
-      return;
-    }
+export const addChunk = (world: World, pos: Vec2, difficulty: number) => {
+  if (world.chunks[`${pos[0]},${pos[1]}`]) {
+    return world;
+  }
 
-    const fields = Array(CHUNK_SHAPE[0] * CHUNK_SHAPE[1])
-      .fill(null)
-      .map((_) => ({
-        value:
-          Math.random() < difficulty
-            ? ("mine" as const)
-            : ("uncounted" as const),
-        state: "hidden" as const,
-        nFlags: 0 as const,
-      }));
+  const fields = Array(CHUNK_SHAPE[0] * CHUNK_SHAPE[1])
+    .fill(null)
+    .map((_) => ({
+      value:
+        Math.random() < difficulty ? ("mine" as const) : ("uncounted" as const),
+      state: "hidden" as const,
+      nFlags: 0 as const,
+    }));
 
-    draft.chunks[`${pos[0]},${pos[1]}`] = {
-      pos,
-      fields,
-    };
-  });
+  return {
+    ...world,
+    chunks: {
+      ...world.chunks,
+      [`${pos[0]},${pos[1]}`]: {
+        pos,
+        fields,
+      },
+    },
+  };
+};
 
 const changeFieldState = (
   world: World,
   chunkPos: Vec2,
   localPos: Vec2,
   state: FieldState
-) =>
-  produce(world, (draft) => {
-    const chunk = draft.chunks[`${chunkPos[0]},${chunkPos[1]}`];
+) => {
+  const chunkKey = `${chunkPos[0]},${chunkPos[1]}` as const;
+  const chunk = world.chunks[chunkKey];
+  if (!chunk) {
+    throw new Error("chunk does not exist");
+  }
 
-    if (!chunk) {
-      throw new Error("chunk does not exist");
-    }
+  const fieldIndex = ravel(localPos, CHUNK_SHAPE);
+  const newField = { ...chunk.fields[fieldIndex], state };
+  const newFields = [...chunk.fields];
+  newFields[fieldIndex] = newField;
 
-    const field = chunk.fields[ravel(localPos, CHUNK_SHAPE)];
+  const newChunk = { ...chunk, fields: newFields };
+  const newChunks = { ...world.chunks };
+  newChunks[chunkKey] = newChunk;
 
-    field.state = state;
-  });
+  return { ...world, chunks: newChunks };
+};
 
 const changeFieldValue = (
   world: World,
   chunkPos: Vec2,
   localPos: Vec2,
   value: FieldValue
-) =>
-  produce(world, (draft) => {
-    const chunk = draft.chunks[`${chunkPos[0]},${chunkPos[1]}`];
+) => {
+  const chunkKey = `${chunkPos[0]},${chunkPos[1]}` as const;
+  const chunk = world.chunks[chunkKey];
+  if (!chunk) {
+    throw new Error("chunk does not exist");
+  }
 
-    if (!chunk) {
-      throw new Error("chunk does not exist");
-    }
+  const fieldIndex = ravel(localPos, CHUNK_SHAPE);
+  const newField = { ...chunk.fields[fieldIndex], value };
+  const newFields = [...chunk.fields];
+  newFields[fieldIndex] = newField;
 
-    const field = chunk.fields[ravel(localPos, CHUNK_SHAPE)];
+  const newChunk = { ...chunk, fields: newFields };
+  const newChunks = { ...world.chunks };
+  newChunks[chunkKey] = newChunk;
 
-    field.value = value;
-  });
+  return { ...world, chunks: newChunks };
+};
 
 const reveal = (world: World, chunkPos: Vec2, localPos: Vec2): World => {
   const chunk = world.chunks[`${chunkPos[0]},${chunkPos[1]}`];
@@ -146,41 +169,37 @@ const reveal = (world: World, chunkPos: Vec2, localPos: Vec2): World => {
     return world;
   }
 
-  const newFieldValue = match(field.value)
-    .with("uncounted", () => {
-      let nMines = 0;
+  if (field.value !== "uncounted") {
+    return world;
+  }
 
-      neighbors(chunk.pos, localPos, CHUNK_SHAPE).forEach(
-        ([[cx, cy], [nx, ny]]) => {
-          world = addChunk(world, [cx, cy], DIFFICULTY);
+  let nMines: Fin9 = 0;
 
-          world = produce(world, (draft) => {
-            const nChunk = draft.chunks[`${cx},${cy}`];
+  neighbors(chunk.pos, localPos, CHUNK_SHAPE).forEach(
+    ([[cx, cy], [nx, ny]]) => {
+      world = addChunk(world, [cx, cy], DIFFICULTY);
 
-            const nField = nChunk.fields[ravel([nx, ny], CHUNK_SHAPE)];
+      const nChunk = world.chunks[`${cx},${cy}`];
 
-            if (nField === undefined) {
-              // throw error with full position
+      const nField = nChunk.fields[ravel([nx, ny], CHUNK_SHAPE)];
 
-              throw new Error(
-                `field ${nx}, ${ny} does not exist in chunk ${cx}, ${cy}`
-              );
-            }
+      if (nField === undefined) {
+        // throw error with full position
 
-            if (nField.value === "mine") {
-              nMines += 1;
-            }
-          });
-        }
-      );
+        throw new Error(
+          `field ${nx}, ${ny} does not exist in chunk ${cx}, ${cy}`
+        );
+      }
 
-      return nMines as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
-    })
-    .otherwise(() => field.value);
+      if (nField.value === "mine") {
+        nMines += 1;
+      }
+    }
+  );
 
-  world = changeFieldValue(world, chunkPos, localPos, newFieldValue);
+  world = changeFieldValue(world, chunkPos, localPos, nMines);
 
-  if (newFieldValue === 0) {
+  if (nMines === 0) {
     neighbors(chunk.pos, localPos, CHUNK_SHAPE).forEach(
       ([[cx, cy], [nx, ny]]) => {
         world = reveal(world, [cx, cy], [nx, ny]);
@@ -220,6 +239,40 @@ export const check = (world: World, chunkPos: Vec2, localPos: Vec2): World => {
   return reveal(world, chunkPos, localPos);
 };
 
+function incrementFlags(
+  world: World,
+  n: number,
+  chunkPos: Vec2,
+  localPos: Vec2
+): World {
+  const [cx, cy] = chunkPos;
+  const [nx, ny] = localPos;
+
+  const nChunk = world.chunks[`${cx},${cy}`];
+  const nIdx = ravel([nx, ny], CHUNK_SHAPE);
+  const nField = nChunk.fields[nIdx];
+
+  const updatedChunks: Record<Vec2Hash, ChunkData> = {
+    ...world.chunks,
+    [`${cx},${cy}`]: {
+      ...nChunk,
+      fields: [...nChunk.fields],
+    },
+  };
+
+  const nFlags = (nField.nFlags + n) as Fin9;
+
+  updatedChunks[`${cx},${cy}`].fields[nIdx] = {
+    ...nField,
+    nFlags,
+  };
+
+  return {
+    ...world,
+    chunks: updatedChunks,
+  };
+}
+
 export const mark = (world: World, chunkPos: Vec2, localPos: Vec2): World => {
   if (world.isExploded) {
     return world;
@@ -240,17 +293,7 @@ export const mark = (world: World, chunkPos: Vec2, localPos: Vec2): World => {
 
         neighbors(chunk.pos, localPos, CHUNK_SHAPE).forEach(
           ([[cx, cy], [nx, ny]]) => {
-            world = addChunk(world, [cx, cy], DIFFICULTY);
-
-            world = produce(world, (draft) => {
-              const nChunk = draft.chunks[`${cx},${cy}`];
-
-              const nIdx = ravel([nx, ny], CHUNK_SHAPE);
-
-              const nField = nChunk.fields[nIdx];
-
-              nField.nFlags += 1;
-            });
+            world = incrementFlags(world, 1, [cx, cy], [nx, ny]);
           }
         );
       })
@@ -263,15 +306,7 @@ export const mark = (world: World, chunkPos: Vec2, localPos: Vec2): World => {
 
         neighbors(chunk.pos, localPos, CHUNK_SHAPE).forEach(
           ([[cx, cy], [nx, ny]]) => {
-            world = produce(world, (draft) => {
-              const nChunk = draft.chunks[`${cx},${cy}`];
-
-              const nIdx = ravel([nx, ny], CHUNK_SHAPE);
-
-              const nField = nChunk.fields[nIdx];
-
-              nField.nFlags -= 1;
-            });
+            world = incrementFlags(world, -1, [cx, cy], [nx, ny]);
           }
         );
       })

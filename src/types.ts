@@ -25,24 +25,15 @@ export type State = {
   config: ConfigState;
 } & Callbacks;
 
+export type Fin9 = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
 export type FieldState = "revealed" | "hidden" | "flagged" | "questioned";
-export type FieldValue =
-  | "mine"
-  | "uncounted"
-  | 0
-  | 1
-  | 2
-  | 3
-  | 4
-  | 5
-  | 6
-  | 7
-  | 8;
+export type FieldValue = "mine" | "uncounted" | Fin9;
 
 export type FieldData = {
   state: FieldState;
   value: FieldValue;
-  nFlags: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  nFlags: Fin9;
 };
 
 export type ChunkData = {
